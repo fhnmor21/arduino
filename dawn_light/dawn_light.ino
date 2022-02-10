@@ -13,6 +13,16 @@
 #define minTempK 1000
 #define maxTempK 6500
 
+#define DawnBeginH 4
+#define DawnBeginM 30
+#define DawnEndH 7
+#define DawnEndM 00
+#define DuskBeginH 18
+#define DuskBeginM 30
+#define DuskEndH 21
+#define DuskEndM 30
+
+
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 // Argument 1 = Number of pixels in NeoPixel strip
@@ -37,6 +47,13 @@ void setup() {
 
 }
 
+float    tempRange = (float)maxTempK - (float)minTempK;
+uint32_t dawnBeginMinutes = 60 * DawnBeginH + DawnBeginM;
+uint32_t dawnEndMinutes = 60 * DawnEndH + DawnEndM;
+uint32_t dawnFuncSlope = (uint32_t)( tempRange / (dawnEndMinutes - dawnBeginMinutes) );
+uint32_t duskBeginMinutes = 60 * DuskBeginH + DuskBeginM;
+uint32_t duskEndMinutes = 60 * DuskEndH + DuskEndM;
+uint32_t duskFuncSlope = (uint32_t)( tempRange / (duskEndMinutes - duskBeginMinutes) );
 
 void loop() {
   tmElements_t tm;
@@ -47,15 +64,15 @@ void loop() {
   }
 
   uint16_t K = 0;
-  if (minutes > 240 && minutes < 420){
-    K = 1000 + 42*(minutes - 240);
+  if (minutes > dawnBeginMinutes && minutes < dawnEndMinutes){
+    K = minTempK + dawnFuncSlope*(minutes - dawnBeginMinutes);
   }
 
-  if (minutes > 1080 && minutes < 1320){
-    K = 6000 + 25*(1080 - minutes);
+  if (minutes > duskBeginMinutes && minutes < duskEndMinutes){
+    K = maxTempK + duskFuncSlope*(duskBeginMinutes - minutes);
   }
 
-  if (K > 1000 && K < 6500) {
+  if (K >= minTempK && K <= maxTempK) {
     uint32_t colorRGB = K2RGB(K);
     uint8_t brightness = 64*((float)K/maxTempK);
     colorWipe(colorRGB, brightness, 250);
@@ -63,13 +80,14 @@ void loop() {
     colorWipe(0, 0, 250);
   }
   
-  
+
+//  testTimeRangeVsTempK();
 //  Serial.write("Hour = ");
 //  Serial.println(tm.Hour);
 //  Serial.write("minutes = ");
 //  Serial.println(minutes);
   
-  delay(5000);  
+  delay(90000);  
 }
 
 
@@ -151,18 +169,46 @@ uint32_t K2RGB(uint16_t ctK){
   return strip.Color(red, green, blue);
 }
 
-//
-//// color temperature range test
-//int minTempK = 1000;
-//int maxTempK = 6500;
-//void testColorK(){
-//  for(int k = minTempK; k <= maxTempK; k=k+200) {
-//    uint32_t colorRGB = K2RGB(k);
-//    uint8_t brightness = 64*((float)k/maxTempK);
-////    Serial.write("Brightness = ");
-////    Serial.println(brightness);
-////    Serial.write("\n");
-//    colorWipe(colorRGB, brightness, 100);
-//    delay(500); 
-//  }
-//}
+
+// Time Range vs Temp Test
+void testTimeRangeVsTempK() {
+  int minutes;
+  for (minutes= dawnBeginMinutes; minutes <= dawnEndMinutes; minutes = minutes+5) {
+    uint16_t K = minTempK + dawnFuncSlope*(minutes - dawnBeginMinutes);
+    Serial.println("Dawn Simulation");
+    Serial.write("ColorK = ");
+    Serial.println(K);
+    Serial.write("minutes = ");
+    Serial.println(minutes);
+    Serial.write("\n");
+  }
+
+  for (minutes= duskBeginMinutes; minutes<= duskEndMinutes; minutes= minutes+5) {
+    uint16_t K = maxTempK + duskFuncSlope*(duskBeginMinutes - minutes);
+    Serial.println("Dusk Simulation");
+    Serial.write("ColorK = ");
+    Serial.println(K);
+    Serial.write("minutes = ");
+    Serial.println(minutes);
+    Serial.write("\n");
+  }
+
+  delay(1000000);
+}
+
+
+
+// color temperature range test
+void testColorK(){
+  for(int k = minTempK; k <= maxTempK; k=k+200) {
+    uint32_t colorRGB = K2RGB(k);
+    uint8_t brightness = 64*((float)k/maxTempK);
+    
+//    Serial.write("Brightness = ");
+//    Serial.println(brightness);
+//    Serial.write("\n");
+
+    colorWipe(colorRGB, brightness, 100);
+    delay(500); 
+  }
+}
